@@ -6,9 +6,6 @@ pillow==12.1.1
 # AI / ML
 tensorflow==2.20.0
 keras==3.14.0
-torch==2.9.1
-torchvision==0.24.1
-ultralytics==8.3.233
 deepface==0.0.93
 mtcnn==1.0.0
 

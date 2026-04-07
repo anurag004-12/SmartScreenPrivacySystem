@@ -3,16 +3,16 @@ import numpy as np
 import cv2
 import os
 import logging
+import hashlib
 
-EMBED_SIZE = 32  # 32×32 → 1024-d vector
+EMBED_SIZE = 64
+BASE_DIR = os.path.abspath("models")
 
 
 def compute_embedding(face_bgr):
-    """
-    Convert face image to grayscale, resize, flatten, and L2-normalize.
-    """
     try:
         gray = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2GRAY)
+        gray = cv2.equalizeHist(gray)
         feat = cv2.resize(gray, (EMBED_SIZE, EMBED_SIZE)).flatten().astype(np.float32)
         norm = np.linalg.norm(feat) + 1e-8
         return feat / norm
@@ -22,64 +22,80 @@ def compute_embedding(face_bgr):
 
 
 class FaceRecognizer:
-    """
-    Very lightweight "admin vs others" recognizer using cosine similarity
-    between a stored admin embedding and current face crop.
-    """
 
-    def __init__(self, emb_path, img_path, threshold=0.55):
+    def __init__(self, emb_path, img_path, threshold=0.80):
         self.emb_path = emb_path
         self.img_path = img_path
         self.threshold = threshold
         self.admin_emb = None
 
-        # Try load existing embedding
-        if os.path.exists(emb_path):
+        safe_emb_path = os.path.abspath(emb_path)
+        if not safe_emb_path.startswith(BASE_DIR):
+            logging.warning(f"Blocked unsafe embedding path: {emb_path}")
+            return
+
+        if os.path.exists(safe_emb_path):
             try:
-                with open(emb_path, 'rb') as f:
+                with open(safe_emb_path, 'rb') as f:
                     self.admin_emb = np.load(f).astype(np.float32)
-                logging.info(f"Loaded admin embedding from {emb_path}")
+                if not os.path.exists(safe_emb_path + ".sha256"):
+                    self._save_checksum(self.admin_emb, safe_emb_path)
+                logging.info(f"Loaded admin embedding from {safe_emb_path}")
             except Exception as e:
                 logging.warning(f"Failed to load admin embedding: {e}")
 
-        # Else, compute from admin image if exists
         elif os.path.exists(img_path):
             img = cv2.imread(img_path)
             if img is not None:
-                # Detect face in the image and crop it before embedding
-                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                face_cascade = cv2.CascadeClassifier(
-                    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-                )
-                faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40))
-                if len(faces) > 0:
-                    x, y, w, h = faces[0]
-                    img = img[y:y+h, x:x+w]
                 emb = compute_embedding(img)
                 if emb is not None:
-                    os.makedirs(os.path.dirname(emb_path), exist_ok=True)
-                    np.save(emb_path, emb)
+                    os.makedirs(os.path.dirname(safe_emb_path), exist_ok=True)
+                    np.save(safe_emb_path, emb)
+                    self._save_checksum(emb, safe_emb_path)
                     self.admin_emb = emb
                     logging.info(f"Created admin embedding from {img_path}")
 
         if self.admin_emb is None:
             logging.warning("No admin embedding found. All faces will be 'unknown'.")
 
+    def _checksum(self, emb):
+        return hashlib.sha256(emb.tobytes()).hexdigest()
+
+    def _save_checksum(self, emb, path):
+        with open(path + ".sha256", "w") as f:
+            f.write(self._checksum(emb))
+
+    def _verify_checksum(self, emb, path):
+        chk_path = path + ".sha256"
+        if not os.path.exists(chk_path):
+            return True
+        with open(chk_path, "r") as f:
+            stored = f.read().strip()
+        if stored != self._checksum(emb):
+            logging.warning("Embedding integrity check failed — possible tampering.")
+            return False
+        return True
+
     def verify(self, face_crop):
-        """
-        face_crop: BGR face image.
-        Returns: (is_admin: bool, score: float)
-        """
         if self.admin_emb is None:
             return False, 0.0
 
         if face_crop is None or face_crop.size == 0:
             return False, 0.0
 
+        safe_emb_path = os.path.abspath(self.emb_path)
+        if not self._verify_checksum(self.admin_emb, safe_emb_path):
+            return False, 0.0
+
         emb = compute_embedding(face_crop)
         if emb is None:
             return False, 0.0
 
-        score = float(np.dot(emb, self.admin_emb))  # cosine similarity
+        if emb.shape != self.admin_emb.shape:
+            logging.warning("Embedding shape mismatch — please re-enroll admin.")
+            return False, 0.0
+
+        score = float(np.dot(emb, self.admin_emb))
         is_admin = score >= self.threshold
+        logging.info(f"verify(): is_admin={is_admin}, score={score:.4f}")
         return is_admin, score

@@ -1,28 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
 # Virtual environment
 venv/
 env/
-
-# Environment variables
 .env
 
-# Python cache
-__pycache__/
-*.pyc
+# Admin face data — personal, do not commit
+assets/admin_face.jpg
+models/admin_emb.npy
+models/admin_emb.npy.sha256
 
-# Logs
-*.log
+# YOLO model files — large binaries, download separately
+models/yolov8n.onnx
+models/yolov8n.pt
+models/yolov5s.pt
+yolov5s.pt
+yolov5su.pt
 
-# Models (optional large files)
-*.pt
-*.h5
-*.onnx
+# Logs — runtime generated
+logs/
 
-# VS Code
+# PyInstaller build output
+dist/
+build/
+*.spec
+
+# IDE
 .vscode/
+.idea/
+*.suo
+*.user
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Frontend (if not needed)
-node_modules/
+# Old/unused subfolder
+smart_screen_blur/

@@ -1,88 +1,95 @@
 # 🛡️ Smart Privacy Guardian
 
-**AI-Based Multi-Modal Screen Privacy Protection System**
+**AI-Based Real-Time Screen Privacy Protection System**
 
-Smart Privacy Guardian is an AI-powered desktop security application designed to protect user privacy by detecting unauthorized viewers and automatically securing sensitive on-screen content. The system uses **computer vision, face recognition, and object detection** to identify human presence and apply intelligent privacy actions such as screen blurring, alerts, and logging.
+Smart Privacy Guardian is an AI-powered desktop security application that protects your screen from unauthorized viewers using computer vision and object detection. It monitors your webcam in real time, verifies the admin's identity, detects intruders and threat devices, and automatically blurs the screen with an audio alert.
 
 ---
 
 ## 🚀 Project Objective
 
-The main goal of Smart Privacy Guardian is to:
-
-* Prevent **shoulder surfing** and unauthorized viewing
-* Protect **confidential data** on screens
-* Provide **real-time AI-based privacy enforcement**
-* Create a smart, automated **screen protection system**
+- Prevent **shoulder surfing** and unauthorized screen viewing
+- Protect **confidential on-screen data** in real time
+- Detect **recording devices** (phones, laptops) pointed at the screen
+- Provide **automated AI-based privacy enforcement**
 
 ---
 
 ## 🧠 Core Features
 
-* 🔍 **Human Detection** using YOLO object detection
-* 🧑‍💻 **Face Recognition** using DeepFace
-* 🛡️ **Admin Face Verification System**
-* 🌫️ **Automatic Screen Blur** on unauthorized detection
-* 🔔 **Voice Alerts & Notifications**
-* 📜 **Security Logs** for activity tracking
-* ⏸️ **Auto Resume Logic** when admin is alone
-* 🎛️ **Detection Toggle Controls**
-* 🖥️ **Sensitive Window Protection**
+| Feature | Technology |
+|---|---|
+| 👤 Admin Face Enrollment | OpenCV Haar Cascade + Pixel Embedding |
+| 🔍 Face Recognition | 64×64 Grayscale Embedding + Cosine Similarity |
+| 📱 Phone / Device Detection | YOLOv5s ONNX via OpenCV DNN |
+| 🕵️ Shoulder Surfer Detection | YOLO Person Class (body detection) |
+| 🌫️ Automatic Screen Blur | PyQt5 Fullscreen Overlay |
+| 🔔 Voice Alert | gTTS + playsound |
+| 📜 Security Logging | Python logging to `logs/app.log` |
+| 🔒 Embedding Integrity | SHA-256 checksum tamper detection |
+| 🎛️ Stop / Start Camera | UI toggle button |
 
 ---
 
 ## 🏗️ System Architecture
 
-1. Webcam Feed Capture
-2. Human Detection (YOLO)
-3. Face Recognition (DeepFace)
-4. Identity Verification (Admin vs Unknown)
-5. Decision Engine
-6. Privacy Action Layer
-
-   * Screen Blur
-   * Alerts
-   * Logging
+```
+Webcam Feed
+    │
+    ├── Haar Cascade ──► Face Detected?
+    │                        ├── Yes ──► Pixel Embedding ──► Cosine Similarity ──► Admin / Intruder
+    │                        └── No  ──► (YOLO handles body detection)
+    │
+    └── YOLOv5s ONNX ──► Phone / Laptop / Person Detected?
+                              ├── Threat Device ──► Instant Screen Blur + Alert
+                              ├── Unknown Person ──► Screen Blur + Alert
+                              └── Admin Only ──► Screen Normal
+```
 
 ---
 
 ## 🧰 Tech Stack
 
-### Programming Language
-
-* Python
-
-### Libraries & Frameworks
-
-* OpenCV
-* YOLO (Object Detection)
-* DeepFace (Face Recognition)
-* PyQt5 (Admin Face Registration Tool)
-* Tkinter (Main Application UI)
-* NumPy
-
-### AI Components
-
-* Computer Vision
-* Facial Recognition
-* Object Detection
-* Real-Time Video Processing
+- **Language:** Python 3.10
+- **GUI:** PyQt5
+- **Computer Vision:** OpenCV 4.12
+- **Object Detection:** YOLOv5s ONNX (OpenCV DNN backend)
+- **Face Recognition:** Custom 64×64 pixel embedding (NumPy + OpenCV)
+- **Audio Alerts:** gTTS + playsound
+- **Screen Capture:** pyautogui
 
 ---
 
 ## 📂 Project Structure
 
 ```
-Smart-Privacy-Guardian/
+smart_privacy_guardian/
 │
-├── admin_face_capture/        # PyQt5-based admin registration tool
-├── main_app/                  # Tkinter-based main application
-├── models/                    # YOLO models and configs
-├── logs/                      # Security logs
-├── utils/                     # Helper functions
-├── assets/                    # UI assets
-├── requirements.txt
-└── README.md
+├── main.py                  # Entry point
+├── requirements.txt         # Dependencies
+│
+├── gui/
+│   └── main_window.py       # PyQt5 UI — video feed, buttons, blur overlay
+│
+├── modules/
+│   ├── detection.py         # Haar face detection + YOLOv5s threat detection
+│   ├── face_recog.py        # Face embedding + cosine similarity verification
+│   ├── liveness.py          # Liveness detector (always True — placeholder)
+│   ├── blur.py              # Screen blur overlay
+│   └── audio_alert.py       # Voice alert via gTTS
+│
+├── models/
+│   └── yolov8n.onnx         # YOLOv5s ONNX model (download separately)
+│
+├── assets/
+│   └── alert.mp3            # Alert audio file
+│
+├── logs/
+│   └── app.log              # Runtime security logs
+│
+└── frontend/                # Optional web landing page (FastAPI)
+    ├── main.py
+    └── static/
 ```
 
 ---
@@ -90,66 +97,81 @@ Smart-Privacy-Guardian/
 ## ⚙️ Installation
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
 git clone https://github.com/yourusername/smart-privacy-guardian.git
-
-# Navigate to project directory
 cd smart-privacy-guardian
 
-# Install dependencies
+# 2. Create virtual environment
+python -m venv venv
+venv\Scripts\activate
+
+# 3. Install dependencies
 pip install -r requirements.txt
+
+# 4. Download YOLOv5s ONNX model
+curl -L "https://github.com/doleron/yolov5-opencv-cpp-python/raw/main/config_files/yolov5s.onnx" -o models/yolov8n.onnx
 ```
 
 ---
 
-## ▶️ How It Works
+## ▶️ How to Run
 
-1. User registers admin face using the **Admin Face Capture Tool**
-2. System continuously monitors webcam feed
-3. YOLO detects human presence
-4. DeepFace verifies identity
-5. If **unauthorized person detected**:
+```bash
+python main.py
+```
 
-   * Screen is blurred
-   * Alert is triggered
-   * Event is logged
-6. If only admin is present:
+---
 
-   * Screen resumes normally
+## 🖥️ How to Use
+
+1. **Enroll Admin** — Click `Enroll Admin`, position your face in the green box, press `C` to capture
+2. **Monitor** — App continuously monitors webcam for faces and devices
+3. **Threat Detected** — Screen blurs automatically + audio alert plays
+4. **Stop Camera** — Click `Stop Camera` to pause detection and clear blur
+5. **Re-enroll** — Click `Enroll Admin` anytime to update your face
 
 ---
 
 ## 🔐 Privacy Logic
 
-| Condition                | Action              |
-| ------------------------ | ------------------- |
-| Admin only               | Normal screen       |
-| Unknown person detected  | Screen blur + alert |
-| Multiple people detected | Screen blur + alert |
-| No person detected       | Pause detection     |
+| Condition | Action |
+|---|---|
+| Admin face only | ✅ Screen normal |
+| Unknown face detected | 🔒 Screen blur + alert |
+| Phone / laptop pointed at screen | 🔒 Screen blur + alert |
+| Person detected (no face visible) | 🔒 Screen blur + alert |
+| No person detected | ✅ Screen normal |
+| Admin not enrolled | ⚠️ Enrollment prompt shown |
+
+---
+
+## 🔒 Security Features
+
+- **SHA-256 checksum** on admin embedding — detects file tampering
+- **Path traversal protection** — embedding paths validated against allowed directories
+- **URL scheme validation** — only HTTPS allowed for model downloads
+- **Secure enroll flow** — saves face crop only, not full frame
 
 ---
 
 ## 📈 Use Cases
 
-* Corporate office privacy
-* Online exams
-* Remote work security
-* Banking and finance systems
-* Personal system privacy
-* Smart offices
+- Corporate office privacy
+- Online exam monitoring
+- Remote work security
+- Banking and finance terminals
+- Personal laptop privacy
 
 ---
 
 ## 🎯 Future Enhancements
 
-* Multi-user authentication
-* Mobile integration
-* Cloud logging dashboard
-* Mobile app integration
-* Emotion detection
-* Gesture-based privacy controls
-* Encrypted activity logs
+- DeepFace / FaceNet deep learning recognition
+- Real liveness detection (blink detection)
+- Multi-user admin support
+- Encrypted activity logs
+- Cloud dashboard via WebSocket
+- Mobile app integration
 
 ---
 
@@ -162,22 +184,10 @@ This project is developed for **academic and research purposes**.
 ## 👨‍💻 Author
 
 **Anurag Patel**
-B.Tech CSE (AI & ML) Student
+B.Tech CSE (AI & ML)
 
 ---
 
-## ⭐ Why This Project Matters
+## 🔖 Keywords
 
-Smart Privacy Guardian demonstrates the **practical application of AI in cybersecurity and privacy protection**, combining multiple AI technologies into a real-world intelligent system. It is suitable for:
-
-* Academic projects
-* Final year projects
-* Research demonstrations
-* Startup MVP concepts
-* AI portfolio showcase
-
----
-
-## 🔖 Keywords (for GitHub Search & ATS)
-
-Artificial Intelligence, Machine Learning, Computer Vision, YOLO, DeepFace, Face Recognition, Screen Privacy, Cybersecurity, AI Security, Smart Surveillance, Python AI Project
+`Python` `OpenCV` `YOLOv5` `Face Recognition` `Computer Vision` `Screen Privacy` `Cybersecurity` `AI Security` `PyQt5` `Object Detection` `Real-Time` `Shoulder Surfing Prevention`
