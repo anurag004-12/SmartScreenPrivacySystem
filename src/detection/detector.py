@@ -1,4 +1,4 @@
-# modules/detection.py
+# src/detection/detector.py
 import cv2
 import threading
 import time
@@ -7,29 +7,35 @@ import numpy as np
 import urllib.request
 import os
 
-# YOLOv5s ONNX — opset 11, fully compatible with OpenCV 4.12 DNN
-ONNX_PATH = "models/yolov8n.onnx"
-ONNX_URL = "https://github.com/doleron/yolov5-opencv-cpp-python/raw/main/config_files/yolov5s.onnx"
-ALLOWED_SCHEMES = ("https://",)
+from config.settings import (
+    ONNX_MODEL_PATH, YOLO_URL, YOLO_INPUT_SIZE,
+    YOLO_CONF_THRESHOLD, YOLO_NMS_THRESHOLD,
+    YOLO_EVERY_N_FRAMES, THREAT_CLASSES, PERSON_CLASS,
+    CAM_INDEX, CAM_WIDTH, CAM_HEIGHT, MODELS_DIR
+)
 
-# COCO class indices — tablets detected as cell phone or laptop by model
-THREAT_CLASSES = {67: "cell phone", 63: "laptop", 62: "tv", 65: "remote", 73: "book"}
-PERSON_CLASS = 0  # YOLO person class — used for no-face shoulder surfing detection
-CONF_THRESHOLD = 0.20
-NMS_THRESHOLD = 0.40
-INPUT_SIZE = 640        # YOLOv5s ONNX is fixed at 640 — cannot be changed
-YOLO_EVERY_N_FRAMES = 15  # run every 15th frame to reduce CPU load
+ALLOWED_SCHEMES = ("https://",)
 
 
 def _load_yolo():
-    os.makedirs("models", exist_ok=True)
-    if not os.path.exists(ONNX_PATH):
-        if not any(ONNX_URL.startswith(s) for s in ALLOWED_SCHEMES):
-            raise ValueError(f"Blocked unsafe URL scheme: {ONNX_URL}")
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    model_path = ONNX_MODEL_PATH
+    legacy_model_path = os.path.join(MODELS_DIR, "yolov8n.onnx")
+
+    if not os.path.exists(model_path) and os.path.exists(legacy_model_path):
+        logging.warning(
+            "Using legacy ONNX model path %s. Rename it to yolov5s.onnx when convenient.",
+            legacy_model_path,
+        )
+        model_path = legacy_model_path
+
+    if not os.path.exists(model_path):
+        if not any(YOLO_URL.startswith(s) for s in ALLOWED_SCHEMES):
+            raise ValueError(f"Blocked unsafe URL scheme: {YOLO_URL}")
         logging.info("Downloading YOLOv5s ONNX...")
-        urllib.request.urlretrieve(ONNX_URL, ONNX_PATH)
+        urllib.request.urlretrieve(YOLO_URL, model_path)
         logging.info("ONNX model downloaded.")
-    net = cv2.dnn.readNetFromONNX(ONNX_PATH)
+    net = cv2.dnn.readNetFromONNX(model_path)
     net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
     net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
     return net
@@ -46,24 +52,25 @@ except Exception as e:
 
 
 def _detect_threats(frame):
-    """Run YOLOv5s via OpenCV DNN. Returns (threats, yolo_persons)."""
     h, w = frame.shape[:2]
-    blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (INPUT_SIZE, INPUT_SIZE),
+    blob = cv2.dnn.blobFromImage(frame, 1 / 255.0,
+                                  (YOLO_INPUT_SIZE, YOLO_INPUT_SIZE),
                                   swapRB=True, crop=False)
     _yolo_net.setInput(blob)
-    outputs = _yolo_net.forward()[0]  # (25200, 85)
+    outputs = _yolo_net.forward()[0]
 
-    x_scale, y_scale = w / INPUT_SIZE, h / INPUT_SIZE
+    x_scale = w / YOLO_INPUT_SIZE
+    y_scale = h / YOLO_INPUT_SIZE
     boxes, scores, class_ids = [], [], []
 
     for row in outputs:
         obj_conf = float(row[4])
-        if obj_conf < CONF_THRESHOLD:
+        if obj_conf < YOLO_CONF_THRESHOLD:
             continue
         class_scores = row[5:]
         cls_id = int(np.argmax(class_scores))
         conf = obj_conf * float(class_scores[cls_id])
-        if conf < CONF_THRESHOLD:
+        if conf < YOLO_CONF_THRESHOLD:
             continue
         if cls_id not in THREAT_CLASSES and cls_id != PERSON_CLASS:
             continue
@@ -76,18 +83,20 @@ def _detect_threats(frame):
 
     threats, yolo_persons = [], []
     if boxes:
-        indices = cv2.dnn.NMSBoxes(boxes, scores, CONF_THRESHOLD, NMS_THRESHOLD)
-        for i in indices:
+        indices = cv2.dnn.NMSBoxes(boxes, scores,
+                                    YOLO_CONF_THRESHOLD, YOLO_NMS_THRESHOLD)
+        for i in np.array(indices).flatten():
             x, y, bw, bh = boxes[i]
             if class_ids[i] == PERSON_CLASS:
                 yolo_persons.append((x, y, x + bw, y + bh))
             else:
-                threats.append((x, y, x + bw, y + bh, THREAT_CLASSES[class_ids[i]]))
+                threats.append((x, y, x + bw, y + bh,
+                                 THREAT_CLASSES[class_ids[i]]))
     return threats, yolo_persons
 
 
 class DetectionManager:
-    def __init__(self, cam_index=0):
+    def __init__(self, cam_index=CAM_INDEX):
         self.cam_index = cam_index
         self.cap = None
         self.running = False
@@ -103,16 +112,15 @@ class DetectionManager:
         self.face_cascade = cv2.CascadeClassifier(
             cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
         )
-        self.profile_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_profileface.xml"
-        )
+        # CLAHE for contrast normalization — fixes Haar in bright/dark conditions
+        self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
     def start(self):
         if self.running:
             return
         self.cap = cv2.VideoCapture(self.cam_index, cv2.CAP_DSHOW)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 480)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 270)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
         self.running = True
         threading.Thread(target=self._loop, daemon=True).start()
 
@@ -132,6 +140,7 @@ class DetectionManager:
             self._frame_count += 1
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray = self.clahe.apply(gray)  # normalize contrast
             frontal = self.face_cascade.detectMultiScale(
                 gray, scaleFactor=1.1, minNeighbors=4, minSize=(40, 40)
             )
@@ -148,7 +157,6 @@ class DetectionManager:
                     threats = list(self.last_threats)
                     yolo_persons = list(self.last_yolo_persons)
 
-            haar_persons = list(persons)
             shoulder_surfers = []
             for (px1, py1, px2, py2) in yolo_persons:
                 overlap = any(
@@ -160,15 +168,14 @@ class DetectionManager:
 
             with self.lock:
                 self.last_frame = frame
-                self.last_persons = haar_persons
+                self.last_persons = list(persons)
                 self.last_threats = threats
-                self.last_yolo_persons = shoulder_surfers
+                self.last_yolo_persons = list(yolo_persons)
                 self.last_shoulder_surfers = shoulder_surfers
 
             time.sleep(0.033)
 
     def get(self):
-        """Returns (frame, persons, threats, shoulder_surfers) or None if nothing yet."""
         with self.lock:
             if self.last_frame is None:
                 return None

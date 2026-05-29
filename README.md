@@ -1,193 +1,135 @@
-# 🛡️ Smart Privacy Guardian
+# Smart Privacy Guardian
 
-**AI-Based Real-Time Screen Privacy Protection System**
+AI-based real-time screen privacy protection for desktop systems.
 
-Smart Privacy Guardian is an AI-powered desktop security application that protects your screen from unauthorized viewers using computer vision and object detection. It monitors your webcam in real time, verifies the admin's identity, detects intruders and threat devices, and automatically blurs the screen with an audio alert.
+Smart Privacy Guardian monitors a webcam feed, verifies the enrolled admin face,
+detects nearby people and threat devices, and blurs the screen with an audio
+alert when privacy is at risk.
 
----
-
-## 🚀 Project Objective
-
-- Prevent **shoulder surfing** and unauthorized screen viewing
-- Protect **confidential on-screen data** in real time
-- Detect **recording devices** (phones, laptops) pointed at the screen
-- Provide **automated AI-based privacy enforcement**
-
----
-
-## 🧠 Core Features
+## Core Features
 
 | Feature | Technology |
-|---|---|
-| 👤 Admin Face Enrollment | OpenCV Haar Cascade + Pixel Embedding |
-| 🔍 Face Recognition | 64×64 Grayscale Embedding + Cosine Similarity |
-| 📱 Phone / Device Detection | YOLOv5s ONNX via OpenCV DNN |
-| 🕵️ Shoulder Surfer Detection | YOLO Person Class (body detection) |
-| 🌫️ Automatic Screen Blur | PyQt5 Fullscreen Overlay |
-| 🔔 Voice Alert | gTTS + playsound |
-| 📜 Security Logging | Python logging to `logs/app.log` |
-| 🔒 Embedding Integrity | SHA-256 checksum tamper detection |
-| 🎛️ Stop / Start Camera | UI toggle button |
+| --- | --- |
+| Admin face enrollment | OpenCV Haar Cascade + pixel embedding |
+| Face recognition | 64x64 grayscale embedding + cosine similarity |
+| Phone/device detection | YOLOv5s ONNX via OpenCV DNN |
+| Shoulder-surfer detection | YOLO person class + face overlap checks |
+| Screen blur | PyQt5 fullscreen overlay + pyautogui screenshot |
+| Audio alert | gTTS + playsound |
+| Security logging | Python logging to `logs/app.log` |
+| Embedding protection | Fernet encryption + SHA-256 checksum |
 
----
+## Tools Used
 
-## 🏗️ System Architecture
+| Area | Tools / Libraries |
+| --- | --- |
+| Programming language | Python |
+| Computer vision | OpenCV, OpenCV Haar Cascade, OpenCV DNN |
+| Object detection model | YOLOv5s ONNX |
+| Face matching | NumPy, 64x64 grayscale pixel embeddings, cosine similarity |
+| Desktop UI | PyQt5 |
+| Screen capture and blur | PyAutoGUI, Pillow, OpenCV Gaussian blur |
+| Audio alerts | gTTS, playsound |
+| Security and integrity | cryptography/Fernet, SHA-256, Python logging |
+| Optional liveness detection | dlib 68-point facial landmarks |
+| Optional web frontend | FastAPI, Uvicorn, Jinja2, HTML, CSS, JavaScript |
+| Packaging | PyInstaller, `SmartPrivacyGuardian.spec` |
+| Testing / evaluation | `accuracy_test.py`, pytest-ready `tests/` package |
 
-```
-Webcam Feed
-    │
-    ├── Haar Cascade ──► Face Detected?
-    │                        ├── Yes ──► Pixel Embedding ──► Cosine Similarity ──► Admin / Intruder
-    │                        └── No  ──► (YOLO handles body detection)
-    │
-    └── YOLOv5s ONNX ──► Phone / Laptop / Person Detected?
-                              ├── Threat Device ──► Instant Screen Blur + Alert
-                              ├── Unknown Person ──► Screen Blur + Alert
-                              └── Admin Only ──► Screen Normal
-```
+## Project Structure
 
----
-
-## 🧰 Tech Stack
-
-- **Language:** Python 3.10
-- **GUI:** PyQt5
-- **Computer Vision:** OpenCV 4.12
-- **Object Detection:** YOLOv5s ONNX (OpenCV DNN backend)
-- **Face Recognition:** Custom 64×64 pixel embedding (NumPy + OpenCV)
-- **Audio Alerts:** gTTS + playsound
-- **Screen Capture:** pyautogui
-
----
-
-## 📂 Project Structure
-
-```
+```text
 smart_privacy_guardian/
-│
-├── main.py                  # Entry point
-├── requirements.txt         # Dependencies
-│
-├── gui/
-│   └── main_window.py       # PyQt5 UI — video feed, buttons, blur overlay
-│
-├── modules/
-│   ├── detection.py         # Haar face detection + YOLOv5s threat detection
-│   ├── face_recog.py        # Face embedding + cosine similarity verification
-│   ├── liveness.py          # Liveness detector (always True — placeholder)
-│   ├── blur.py              # Screen blur overlay
-│   └── audio_alert.py       # Voice alert via gTTS
-│
+├── app.py
+├── accuracy_test.py
+├── config/
+│   └── settings.py
+├── src/
+│   ├── core/
+│   │   ├── audio_alert.py
+│   │   ├── blur.py
+│   │   ├── face_recog.py
+│   │   └── liveness.py
+│   ├── detection/
+│   │   └── detector.py
+│   └── ui/
+│       └── main_window.py
+├── frontend/
+│   ├── main.py
+│   └── static/
+│       ├── index.html
+│       ├── script.js
+│       └── styles.css
 ├── models/
-│   └── yolov8n.onnx         # YOLOv5s ONNX model (download separately)
-│
 ├── assets/
-│   └── alert.mp3            # Alert audio file
-│
-├── logs/
-│   └── app.log              # Runtime security logs
-│
-└── frontend/                # Optional web landing page (FastAPI)
-    ├── main.py
-    └── static/
+├── docs/
+└── tests/
 ```
 
----
-
-## ⚙️ Installation
+## Installation
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/yourusername/smart-privacy-guardian.git
-cd smart-privacy-guardian
-
-# 2. Create virtual environment
 python -m venv venv
 venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Download YOLOv5s ONNX model
-curl -L "https://github.com/doleron/yolov5-opencv-cpp-python/raw/main/config_files/yolov5s.onnx" -o models/yolov8n.onnx
+python -m pip install -r requirements.txt
 ```
 
----
-
-## ▶️ How to Run
+The app downloads the YOLOv5s ONNX model automatically on first run if it is
+missing. To download it manually:
 
 ```bash
+curl -L "https://github.com/doleron/yolov5-opencv-cpp-python/raw/main/config_files/yolov5s.onnx" -o models/yolov5s.onnx
+```
+
+## Run The Desktop App
+
+```bash
+python app.py
+```
+
+## Run The Optional Frontend
+
+```bash
+cd frontend
+python -m pip install -r requirements.txt
 python main.py
 ```
 
----
+Then open `http://127.0.0.1:8000`.
 
-## 🖥️ How to Use
+## How To Use
 
-1. **Enroll Admin** — Click `Enroll Admin`, position your face in the green box, press `C` to capture
-2. **Monitor** — App continuously monitors webcam for faces and devices
-3. **Threat Detected** — Screen blurs automatically + audio alert plays
-4. **Stop Camera** — Click `Stop Camera` to pause detection and clear blur
-5. **Re-enroll** — Click `Enroll Admin` anytime to update your face
+1. Click `Enroll Admin` and capture your face.
+2. Keep monitoring enabled while working.
+3. If an unknown person or threat device is detected, the screen blurs and an
+   alert sound plays.
+4. Click `Stop Camera` to pause monitoring and clear the blur overlay.
 
----
-
-## 🔐 Privacy Logic
+## Privacy Logic
 
 | Condition | Action |
-|---|---|
-| Admin face only | ✅ Screen normal |
-| Unknown face detected | 🔒 Screen blur + alert |
-| Phone / laptop pointed at screen | 🔒 Screen blur + alert |
-| Person detected (no face visible) | 🔒 Screen blur + alert |
-| No person detected | ✅ Screen normal |
-| Admin not enrolled | ⚠️ Enrollment prompt shown |
+| --- | --- |
+| Admin face only | Screen remains visible |
+| Unknown face detected | Screen blurs |
+| Phone or laptop detected | Screen blurs |
+| Person detected without matching face | Screen blurs |
+| No person detected | Screen remains visible |
+| Admin not enrolled | Enrollment prompt is shown |
 
----
+## Security Notes
 
-## 🔒 Security Features
+- `assets/admin_face.jpg`, `models/admin_emb.npy`, `models/admin_emb.npy.sha256`,
+  and `models/emb.key` are personal runtime files and should not be committed.
+- Existing plaintext embeddings are migrated to encrypted storage when
+  `cryptography` is available.
+- Liveness detection uses dlib when `models/shape_predictor_68_face_landmarks.dat`
+  is present. By default, the app is configured to fail open if dlib is missing
+  so demo usage is not blocked.
 
-- **SHA-256 checksum** on admin embedding — detects file tampering
-- **Path traversal protection** — embedding paths validated against allowed directories
-- **URL scheme validation** — only HTTPS allowed for model downloads
-- **Secure enroll flow** — saves face crop only, not full frame
+## Accuracy Test
 
----
+```bash
+python accuracy_test.py
+```
 
-## 📈 Use Cases
-
-- Corporate office privacy
-- Online exam monitoring
-- Remote work security
-- Banking and finance terminals
-- Personal laptop privacy
-
----
-
-## 🎯 Future Enhancements
-
-- DeepFace / FaceNet deep learning recognition
-- Real liveness detection (blink detection)
-- Multi-user admin support
-- Encrypted activity logs
-- Cloud dashboard via WebSocket
-- Mobile app integration
-
----
-
-## 📜 License
-
-This project is developed for **academic and research purposes**.
-
----
-
-## 👨‍💻 Author
-
-**Anurag Patel**
-B.Tech CSE (AI & ML)
-
----
-
-## 🔖 Keywords
-
-`Python` `OpenCV` `YOLOv5` `Face Recognition` `Computer Vision` `Screen Privacy` `Cybersecurity` `AI Security` `PyQt5` `Object Detection` `Real-Time` `Shoulder Surfing Prevention`
+Run the desktop app and enroll an admin before using the accuracy test.

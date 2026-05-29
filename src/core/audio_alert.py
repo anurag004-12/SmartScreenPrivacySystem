@@ -1,4 +1,4 @@
-# modules/audio_alert.py
+# src/core/audio_alert.py
 
 import os
 import threading
@@ -29,7 +29,7 @@ class AudioAlert:
         if GTTS_AVAILABLE:
             try:
                 if not os.path.exists(self.filepath):
-                    os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
+                    os.makedirs("assets", exist_ok=True)
                     tts = gTTS(self.text, lang=self.lang)
                     tts.save(self.filepath)
                     logging.info("Generated alert audio at %s", self.filepath)

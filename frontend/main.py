@@ -1,41 +1,28 @@
+from pathlib import Path
+
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-import os
+
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+INDEX_FILE = STATIC_DIR / "index.html"
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-if os.path.exists("static"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
-    return FileResponse("static/index.html")
+    return FileResponse(INDEX_FILE)
 
-@app.get("/features", response_class=HTMLResponse)
-async def features():
-    return FileResponse("static/features.html")
 
-@app.get("/how-it-works", response_class=HTMLResponse)
-async def how_it_works():
-    return FileResponse("static/how-it-works.html")
+@app.get("/{section}", response_class=HTMLResponse)
+async def section_page(section: str):
+    return FileResponse(INDEX_FILE)
 
-@app.get("/pricing", response_class=HTMLResponse)
-async def pricing():
-    return FileResponse("static/pricing.html")
-
-@app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard():
-    return FileResponse("static/dashboard.html")
-
-@app.get("/about", response_class=HTMLResponse)
-async def about():
-    return FileResponse("static/about.html")
-
-@app.get("/contact", response_class=HTMLResponse)
-async def contact():
-    return FileResponse("static/contact.html")
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="127.0.0.1", port=8000)
