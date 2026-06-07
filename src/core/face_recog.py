@@ -48,7 +48,9 @@ def compute_embedding(face_bgr):
     try:
         gray = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2GRAY)
         gray = cv2.equalizeHist(gray)
-        feat = cv2.resize(gray, (EMBED_SIZE, EMBED_SIZE)).flatten().astype(np.float32)
+        feat = cv2.resize(gray, (EMBED_SIZE, EMBED_SIZE)).astype(np.float32)
+        feat = (feat - np.mean(feat)) / (np.std(feat) + 1e-6)
+        feat = feat.flatten()
         norm = np.linalg.norm(feat) + 1e-8
         return feat / norm
     except Exception as e:
@@ -133,9 +135,30 @@ class FaceRecognizer:
             return None
 
     def _validate_embedding(self, emb, path, encrypted):
-        if emb.ndim != 1 or emb.size != EMBED_SIZE * EMBED_SIZE:
-            logging.warning("Invalid embedding shape: %s", emb.shape)
+        # Accept either a single 1D embedding (D,) or multiple embeddings (N, D)
+        if emb.ndim == 1:
+            if emb.size != EMBED_SIZE * EMBED_SIZE:
+                logging.warning("Invalid embedding shape: %s", emb.shape)
+                return None
+        elif emb.ndim == 2:
+            if emb.shape[1] != EMBED_SIZE * EMBED_SIZE:
+                logging.warning("Invalid multi-embedding shape: %s", emb.shape)
+                return None
+        else:
+            logging.warning("Invalid embedding ndim: %s", emb.ndim)
             return None
+
+        # Older embeddings were normalized raw grayscale pixels. Because every
+        # value was positive, unrelated faces often produced very high cosine
+        # scores. Current embeddings are zero-centered before normalization.
+        row_means = np.mean(emb.reshape(1, -1) if emb.ndim == 1 else emb, axis=1)
+        if np.any(np.abs(row_means) > 1e-4):
+            logging.warning(
+                "Legacy face embedding detected at %s; please re-enroll admin.",
+                path,
+            )
+            return None
+
         if not self._verify_checksum(emb, path):
             logging.warning("Embedding integrity check failed; rejecting embedding.")
             return None
@@ -170,10 +193,26 @@ class FaceRecognizer:
         if emb is None:
             return False, 0.0
         if emb.shape != self.admin_emb.shape:
-            logging.warning("Embedding shape mismatch; please re-enroll admin.")
+            # If stored embeddings are multiple (N, D) allow emb (D,) shape mismatch check
+            if not (self.admin_emb.ndim == 2 and emb.ndim == 1 and self.admin_emb.shape[1] == emb.size):
+                logging.warning("Embedding shape mismatch; please re-enroll admin.")
+                return False, 0.0
+
+        # If multiple admin embeddings are stored, use a small top-k average.
+        # A pure max score is too permissive: one accidental high match among
+        # many enrollment samples can accept an intruder.
+        try:
+            if self.admin_emb.ndim == 1:
+                score = float(np.dot(emb, self.admin_emb))
+            else:
+                scores = np.dot(self.admin_emb, emb)
+                k = min(3, scores.size)
+                top_scores = np.partition(scores, -k)[-k:]
+                score = float(np.mean(top_scores))
+        except Exception as e:
+            logging.warning("Failed to compute score: %s", e)
             return False, 0.0
 
-        score = float(np.dot(emb, self.admin_emb))
         is_admin = score >= self.threshold
         logging.info("verify(): is_admin=%s, score=%.4f", is_admin, score)
         return is_admin, score

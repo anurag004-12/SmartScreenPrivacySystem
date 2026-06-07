@@ -3,8 +3,8 @@
 AI-based real-time screen privacy protection for desktop systems.
 
 Smart Privacy Guardian monitors a webcam feed, verifies the enrolled admin face,
-detects nearby people and threat devices, and blurs the screen with an audio
-alert when privacy is at risk.
+detects nearby people and threat devices, and restricts the app dashboard with an
+audio alert when privacy is at risk.
 
 ## Core Features
 
@@ -14,7 +14,7 @@ alert when privacy is at risk.
 | Face recognition | 64x64 grayscale embedding + cosine similarity |
 | Phone/device detection | YOLOv5s ONNX via OpenCV DNN |
 | Shoulder-surfer detection | YOLO person class + face overlap checks |
-| Screen blur | PyQt5 fullscreen overlay + pyautogui screenshot |
+| App restriction | PyQt5 dashboard control disabling |
 | Audio alert | gTTS + playsound |
 | Security logging | Python logging to `logs/app.log` |
 | Embedding protection | Fernet encryption + SHA-256 checksum |
@@ -28,7 +28,7 @@ alert when privacy is at risk.
 | Object detection model | YOLOv5s ONNX |
 | Face matching | NumPy, 64x64 grayscale pixel embeddings, cosine similarity |
 | Desktop UI | PyQt5 |
-| Screen capture and blur | PyAutoGUI, Pillow, OpenCV Gaussian blur |
+| Dashboard UI | PyQt5 |
 | Audio alerts | gTTS, playsound |
 | Security and integrity | cryptography/Fernet, SHA-256, Python logging |
 | Optional liveness detection | dlib 68-point facial landmarks |
@@ -101,8 +101,8 @@ Then open `http://127.0.0.1:8000`.
 
 1. Click `Enroll Admin` and capture your face.
 2. Keep monitoring enabled while working.
-3. If an unknown person or threat device is detected, the screen blurs and an
-   alert sound plays.
+3. If an unknown person or threat device is detected, the dashboard shows
+   `Intruder Detected`, disables app controls, and plays an alert sound.
 4. Click `Stop Camera` to pause monitoring and clear the blur overlay.
 
 ## Privacy Logic
@@ -110,9 +110,9 @@ Then open `http://127.0.0.1:8000`.
 | Condition | Action |
 | --- | --- |
 | Admin face only | Screen remains visible |
-| Unknown face detected | Screen blurs |
-| Phone or laptop detected | Screen blurs |
-| Person detected without matching face | Screen blurs |
+| Unknown face detected | App dashboard controls are disabled |
+| Phone or laptop detected | App dashboard controls are disabled |
+| Person detected without matching face | App dashboard controls are disabled |
 | No person detected | Screen remains visible |
 | Admin not enrolled | Enrollment prompt is shown |
 

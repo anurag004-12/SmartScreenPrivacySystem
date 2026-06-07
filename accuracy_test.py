@@ -1,4 +1,4 @@
-"""
+﻿"""
 accuracy_test.py
 Measures face recognition accuracy of Smart Privacy Guardian.
 Run: python accuracy_test.py
@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath("."))
 from src.core.face_recog import FaceRecognizer, compute_embedding
 from config.settings import ADMIN_EMB_PATH, ADMIN_IMG_PATH, FACE_THRESHOLD
 
-# ── Config ─────────────────────────────────────────────────────────────────
+# â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 ADMIN_SAMPLES    = 20   # frames to capture as admin (true positives)
 INTRUDER_SAMPLES = 20   # frames to capture as non-admin (true negatives)
 
@@ -68,26 +68,48 @@ def capture_samples(label, count):
 
     cap.release()
     cv2.destroyAllWindows()
-    print(f"  Done — {len(samples)} samples captured.")
+    print(f"  Done â€” {len(samples)} samples captured.")
     return samples
 
 
 def run_accuracy_test():
     print("=" * 55)
-    print("   Smart Privacy Guardian — Accuracy Test")
+    print("   Smart Privacy Guardian â€” Accuracy Test")
     print("=" * 55)
 
-    # Load recognizer
+    # Capture admin samples and create multi-sample admin embedding for the test
+    admin_samples = capture_samples("ADMIN (your face)", ADMIN_SAMPLES)
+    emb_list = []
+    for crop in admin_samples:
+        emb = compute_embedding(crop)
+        if emb is None:
+            print("[WARN] compute_embedding returned None for a sample; skipping")
+            continue
+        emb_list.append(emb)
+
+    if len(emb_list) == 0:
+        print("[ERROR] No valid admin embeddings captured.")
+        sys.exit(1)
+
+    emb_array = np.stack(emb_list, axis=0)
+    # Save legacy .npy embedding file for FaceRecognizer to load (migration/encryption handled internally)
+    os.makedirs(os.path.dirname(ADMIN_EMB_PATH), exist_ok=True)
+    np.save(ADMIN_EMB_PATH, emb_array)
+    # Save checksum
+    import hashlib
+    with open(ADMIN_EMB_PATH + ".sha256", "w", encoding="utf-8") as f:
+        f.write(hashlib.sha256(emb_array.tobytes()).hexdigest())
+
+    # Load recognizer (will now load the multi-embedding we just saved)
     recog = FaceRecognizer(ADMIN_EMB_PATH, ADMIN_IMG_PATH, threshold=FACE_THRESHOLD)
     if recog.admin_emb is None:
-        print("\n[ERROR] No admin enrolled. Run app.py and enroll admin first.")
+        print("\n[ERROR] Failed to load admin embeddings after saving.")
         sys.exit(1)
 
     print(f"\nThreshold : {recog.threshold}")
-    print(f"Embed size: {recog.admin_emb.shape}")
+    print(f"Embed shape: {recog.admin_emb.shape}")
 
-    # ── Admin samples (True Positives) ─────────────────────────────────────
-    admin_samples = capture_samples("ADMIN (your face)", ADMIN_SAMPLES)
+    # â”€â”€ Admin samples (True Positives) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     tp, fn = 0, 0
     admin_scores = []
     for crop in admin_samples:
@@ -98,7 +120,7 @@ def run_accuracy_test():
         else:
             fn += 1
 
-    # ── Intruder samples (True Negatives) ──────────────────────────────────
+    # â”€â”€ Intruder samples (True Negatives) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     print("\n[INFO] Now ask someone else (or use a photo) for intruder samples.")
     intruder_samples = capture_samples("INTRUDER (different face/photo)", INTRUDER_SAMPLES)
     tn, fp = 0, 0
@@ -111,7 +133,7 @@ def run_accuracy_test():
         else:
             fp += 1
 
-    # ── Results ────────────────────────────────────────────────────────────
+    # â”€â”€ Results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     total     = tp + fn + tn + fp
     accuracy  = (tp + tn) / total * 100
     precision = tp / (tp + fp) * 100 if (tp + fp) > 0 else 0
@@ -123,8 +145,8 @@ def run_accuracy_test():
     print("\n" + "=" * 55)
     print("   RESULTS")
     print("=" * 55)
-    print(f"  Admin scores   — avg: {np.mean(admin_scores):.4f}  min: {np.min(admin_scores):.4f}  max: {np.max(admin_scores):.4f}")
-    print(f"  Intruder scores— avg: {np.mean(intruder_scores):.4f}  min: {np.min(intruder_scores):.4f}  max: {np.max(intruder_scores):.4f}")
+    print(f"  Admin scores   â€” avg: {np.mean(admin_scores):.4f}  min: {np.min(admin_scores):.4f}  max: {np.max(admin_scores):.4f}")
+    print(f"  Intruder scoresâ€” avg: {np.mean(intruder_scores):.4f}  min: {np.min(intruder_scores):.4f}  max: {np.max(intruder_scores):.4f}")
     print(f"\n  True Positives  (admin correctly recognized) : {tp}/{ADMIN_SAMPLES}")
     print(f"  False Negatives (admin wrongly rejected)     : {fn}/{ADMIN_SAMPLES}")
     print(f"  True Negatives  (intruder correctly blocked) : {tn}/{INTRUDER_SAMPLES}")
@@ -137,19 +159,33 @@ def run_accuracy_test():
     print(f"  FRR (False Reject Rate) : {frr:.1f}%")
     print("=" * 55)
 
-    # ── Suggestion ─────────────────────────────────────────────────────────
+    if len(admin_scores) > 0 and len(intruder_scores) > 0:
+        admin_min = float(np.min(admin_scores))
+        intruder_max = float(np.max(intruder_scores))
+        print("\n  Threshold guidance:")
+        if intruder_max < admin_min:
+            suggested = (admin_min + intruder_max) / 2.0
+            print(f"  Clean score gap found. Suggested FACE_THRESHOLD: {suggested:.4f}")
+        else:
+            print(
+                "  Admin/intruder scores overlap. Re-enroll in steadier lighting "
+                "or use a stronger face embedding model."
+            )
+
+    # â”€â”€ Suggestion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if accuracy >= 90:
-        print("  ✅ Excellent accuracy!")
+        print("  âœ… Excellent accuracy!")
     elif accuracy >= 75:
-        print("  ⚠️  Good — consider re-enrolling in better lighting.")
+        print("  âš ï¸  Good â€” consider re-enrolling in better lighting.")
     else:
-        print("  ❌ Low accuracy — re-enroll admin in good lighting.")
+        print("  âŒ Low accuracy â€” re-enroll admin in good lighting.")
 
     if far > 10:
-        print("  ⚠️  High FAR — lower threshold in config/settings.py")
+        print("  âš ï¸  High FAR - raise threshold in config/settings.py")
     if frr > 10:
-        print("  ⚠️  High FRR — raise threshold in config/settings.py")
+        print("  âš ï¸  High FRR - lower threshold in config/settings.py")
 
 
 if __name__ == "__main__":
     run_accuracy_test()
+
